@@ -2,9 +2,14 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 
 if (!process.env.DATABASE_URL) {
-  console.error('ERROR: DATABASE_URL belum diset. Buat database Postgres gratis di neon.tech,');
-  console.error('lalu isi file .env dengan DATABASE_URL=<connection string dari Neon>.');
-  process.exit(1);
+  // PENTING: jangan pernah panggil process.exit() di lingkungan serverless (Vercel dkk).
+  // Itu langsung mematikan seluruh proses runtime dan dilaporkan sebagai "function crashed",
+  // bukan error biasa. Melempar Error di sini jauh lebih aman -- bisa ditangkap normal oleh
+  // .catch() di server.js dan dikembalikan sebagai response error yang rapi ke klien.
+  throw new Error(
+    'DATABASE_URL belum diset. Buat database Postgres gratis di neon.tech, ' +
+    'lalu tambahkan DATABASE_URL di Environment Variables (Vercel) atau file .env (lokal).'
+  );
 }
 
 const pool = new Pool({

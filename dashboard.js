@@ -1,11 +1,12 @@
 const express = require('express');
 const { pool } = require('../db');
 const { requireAuth } = require('./authGuard');
+const asyncHandler = require('./asyncHandler');
 
 const router = express.Router();
 router.use(requireAuth);
 
-router.get('/summary', async (req, res) => {
+router.get('/summary', asyncHandler(async (req, res) => {
   const isAdmin = req.user.role === 'admin';
 
   const cabangRes = isAdmin
@@ -57,6 +58,6 @@ router.get('/summary', async (req, res) => {
     perCabang,
     topSelisih
   });
-});
+}));
 
 module.exports = router;

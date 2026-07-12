@@ -2,12 +2,13 @@ const express = require('express');
 const PDFDocument = require('pdfkit');
 const { pool, nextId } = require('../db');
 const { requireAuth } = require('./authGuard');
+const asyncHandler = require('./asyncHandler');
 
 const router = express.Router();
 router.use(requireAuth);
 
 // GET /api/opname?cabangId=&from=&to=
-router.get('/', async (req, res) => {
+router.get('/', asyncHandler(async (req, res) => {
   const { cabangId, from, to } = req.query;
   const conditions = [];
   const params = [];
@@ -44,10 +45,10 @@ router.get('/', async (req, res) => {
     };
   });
   res.json(summary);
-});
+}));
 
 // GET /api/opname/:id -> detail lengkap
-router.get('/:id', async (req, res) => {
+router.get('/:id', asyncHandler(async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM opname WHERE id = $1', [req.params.id]);
   const o = rows[0];
   if (!o) return res.status(404).json({ error: 'Data opname tidak ditemukan' });
@@ -55,10 +56,10 @@ router.get('/:id', async (req, res) => {
     return res.status(403).json({ error: 'Tidak punya akses ke data cabang ini' });
   }
   res.json(o);
-});
+}));
 
 // POST /api/opname -> buat entri opname baru
-router.post('/', async (req, res) => {
+router.post('/', asyncHandler(async (req, res) => {
   const { cabangId, tanggal, details, catatan } = req.body || {};
   if (!tanggal || !Array.isArray(details) || details.length === 0) {
     return res.status(400).json({ error: 'Tanggal dan minimal satu item stok wajib diisi' });
@@ -105,7 +106,7 @@ router.post('/', async (req, res) => {
     [id, targetCabangId, cabang.nama, tanggal, req.user.id, req.user.nama, catatan || '', JSON.stringify(cleanDetails), createdAt]
   );
   res.json(entry);
-});
+}));
 
 // ---------- Helper cetak struk 58mm ----------
 const MM_TO_PT = 2.83465;
@@ -191,7 +192,7 @@ function buildOpnamePdf(o) {
 }
 
 // GET /api/opname/:id/pdf -> unduh struk PDF format 58mm
-router.get('/:id/pdf', async (req, res) => {
+router.get('/:id/pdf', asyncHandler(async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM opname WHERE id = $1', [req.params.id]);
   const o = rows[0];
   if (!o) return res.status(404).json({ error: 'Data opname tidak ditemukan' });
@@ -203,6 +204,6 @@ router.get('/:id/pdf', async (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${safeName}.pdf"`);
   const doc = buildOpnamePdf(o);
   doc.pipe(res);
-});
+}));
 
 module.exports = router;

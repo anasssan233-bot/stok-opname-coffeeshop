@@ -23,6 +23,13 @@ const dbReady = initDb().catch((err) => {
   console.error('Gagal menyiapkan database:', err.message);
   throw err;
 });
+// PENTING: tanpa baris ini, "dbReady" adalah Promise yang reject tapi belum ada yang
+// menangkapnya di scope module (baru ditangkap nanti di dalam middleware, per-request).
+// Node.js menganggap itu "unhandled rejection" pada saat cold start dan MEMATIKAN
+// seluruh proses -- inilah penyebab sebenarnya di balik "FUNCTION_INVOCATION_FAILED".
+// .catch(() => {}) di sini menandai rejection-nya sudah "ditangani" sejak awal,
+// sementara promise yang sama tetap bisa di-await lagi (dan tetap reject) oleh middleware di bawah.
+dbReady.catch(() => {});
 
 // Semua request menunggu database siap dulu sebelum diproses
 app.use((req, res, next) => {
@@ -51,6 +58,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Jaring pengaman terakhir: kalau ada error yang lolos dari semua route (query database gagal,
+// bug tak terduga, dll), tangkap di sini dan balas dengan response JSON yang rapi --
+// supaya SATU request yang error tidak menjatuhkan seluruh function di Vercel.
+// Middleware error HARUS didaftarkan paling akhir dan punya 4 parameter (err, req, res, next).
+app.use((err, req, res, next) => {
+  console.error('Error tak tertangani:', err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'Terjadi kesalahan di server' });
 });
 
 // Jalankan sebagai server biasa HANYA kalau file ini dijalankan langsung (npm start / node server.js).
